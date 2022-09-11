@@ -1,0 +1,14 @@
+<!-- https://www.digitalocean.com/community/tutorials/how-to-use-web-forms-in-a-flask-application -->
+<!-- https://flask.palletsprojects.com/en/2.2.x/quickstart/-->
+
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Messages {% endblock %}</h1>
+    {% for message in messages %}
+        <div class='message'>
+            <h3>{{ message['title'] }}</h3>
+            <p>{{ message['content'] }}</p>
+        </div>
+    {% endfor %}
+{% endblock %}

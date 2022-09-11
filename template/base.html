@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %} - FlaskApp</title>
+    <style>
+        .message {
+            padding: 10px;
+            margin: 5px;
+            background-color: #f3f3f3
+        }
+        nav a {
+            color: #054714;
+            background: #f9f9f9;
+            font-size: 1em;
+            font-style:normal;
+            margin-left: 3em;
+            text-decoration: none;
+            font-family: Helvetica Neue,Helvetica,sans-serif;
+        }
+
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('index') }}" target="_self"> Smart Player</a>
+        <a href = "{{ url_for('playlists') }}" target="_self">My Playlist</a>
+        <a href = "{{ url_for('current_playing') }}" target="_self">Current Playing</a>
+        <a href = "{{ url_for('my_top') }}" target="_self">My Top List</a>
+        <a href = "{{ url_for('recommended_artists') }}" target="_self">Recommended</a>
+        <a href = "{{ url_for('current_user') }}" target="_self">Me</a>
+    </nav>
+    <hr>
+    <div class="content">
+        {% block content %} 
+        <p>{{ output }}</p>
+        {% endblock %}
+    </div>
+</body>
+</html>
