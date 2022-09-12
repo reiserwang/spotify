@@ -140,13 +140,61 @@ def current_playing():
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
         return redirect('/')
     sp = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
-    res=sp.devices()
-    pprint.pprint(res)
 
-    
-    track = sp.current_user_playing_track()
+
+    scope = "user-top-read"
+    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
+            +"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
+            +"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
+            +"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
+    cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
+    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
+        return redirect('/')
+
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
+
+        
+    track = spotify.current_user_playing_track()
+    track['item']["feature"] = spotify.audio_features(track['item']['uri'])[0]
+    current_track = {}
+    current_track['name'] = track['item']['name']
+    current_track['url'] = track['item']['external_urls']['spotify']
+    current_track['album_name'] = track['item']['album']['name']
+    current_track['album_image'] = track['item']['album']['images'][0]['url']
+    current_track['album_url'] = track['item']['album']['external_urls']['spotify']
+    current_track['artist_name'] = track['item']['artists'][0]['name']
+    current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
+    current_track['feature'] = track['item']['feature']
     if not track is None:
-        return render_template('base.html', output = track)
+        """
+        #debug
+        """
+        with open('current_playing.json', 'w', encoding='utf-8') as f:    
+            pprint.pprint(track, f) 
+        
+
+
+
+        pt_top=PrettyTable()
+        pt_top.field_names=['cover','track name', 'album name','artist','feature']
+              
+        pt_top.add_row([
+                
+                "<a href='"+current_track['album_url']+"'>"+"<img src='"+current_track['album_image']+"' width='100' ></a>",
+                "<a href='"+current_track['url']+"'>"+current_track['name']+"</a>",
+                "<a href='"+current_track['album_url']+"'>"+current_track['album_name']+"</a>",
+                "<a href='"+current_track['artist_url']+"'>"+current_track['artist_name']+"</a>",
+                current_track['feature']
+            ])
+
+        
+
+
+        html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
+        return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
+       
     return f"No track currently playing."
 
 
@@ -225,30 +273,43 @@ def my_top():
 def recommended_artists(): 
 
     """"
-    # Retrive Sportify's recommended tracks beased on my top artists sp_range in ['short_term', 'medium_term', 'long_term']
+    # Discover new artists - Retrive Sportify's recommended tracks beased on my top artists sp_range in ['short_term', 'medium_term', 'long_term']
+    # Find similar tracks based on currently playing (valence, tempo, danceability)
     """
     scope = "user-top-read,user-library-read"
     pt_top=PrettyTable()
     #pt_top.field_names=['no','name','url','genres','album cover','uri']
-    html_string =""
+    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
++"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
++"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
++"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
         logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
 
-    sp = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+    #sp = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+    sp = spotipy.Spotify(auth_manager=auth_manager)
     ref_artists = []
+
     for sp_range in ['short_term', 'medium_term', 'long_term']:
-        results = sp.current_user_top_artists(time_range=sp_range, limit=50)
+        results = sp.current_user_top_artists(time_range=sp_range, limit=5)
+        print(results)
         for i, item in enumerate(results['items']):
-            ref_artists.append(item['name'])
-    ref_artists = list(set(ref_artists))
+            ref_artists.append(item['uri'])
+    #ref_artists = list(set(ref_artists))
+    print(ref_artists)
 
     for artist in ref_artists:
-        results = sp.search(q='artist:' + artist, type='artist')
+        results = sp.search(q=artist, type='artist')
         items = results['artists']['items']
-        logger.debug("artists = ",items)
+        """
+        #debug
+        """
+        with open('recommend.json', 'w', encoding='utf-8') as f:    
+            pprint.pprint(results, f) 
+
         if len(items) > 0:
             artist_id = items[0]['id']
             logger.debug("artist_id = ", artist_id)
