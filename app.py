@@ -99,15 +99,41 @@ def playlists():
         return redirect('/')
 
     spotify = spotipy.Spotify(auth_manager=auth_manager)
-    output = json.dumps(spotify.current_user_playlists())
-    return render_template('base.html', output = output) 
+
+    # Debug
+    results = json.dumps(spotify.current_user_playlists(), ensure_ascii=False, indent=4)
+    with open('playlist.json', 'w', encoding='utf-8') as f:    
+        pprint.pprint(spotify.current_user_playlists(), f) 
+    #
+
+    results = spotify.current_user_playlists()
+
+    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
++"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
++"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
++"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
+    pt_top=PrettyTable()
+    pt_top.field_names=['no','playlist cover','name','uri']
+
+    for i, item in enumerate(results['items']):    
+        # add_row() takes a list of values as an argument.  
+
+        pt_top.add_row([
+            i,
+            "<a href='"+item['external_urls']['spotify']+"'>"+"<img src='"+item['images'][0]['url']+"' width='100' ></a>",
+            "<a href='"+item['external_urls']['spotify']+"'>"+item['name']+"</a>",
+            item['uri']
+            ])
+    html_string += pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"})
+    
+    return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
 
 
 @app.route('/current_playing')
 def current_playing():
 
 
-    scope = "user-read-playback-state,user-modify-playback-state"
+    scope = "user-read-playback-state,user-modify-playback-state,user-read-currently-playing"
 
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
@@ -116,7 +142,9 @@ def current_playing():
     sp = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
     res=sp.devices()
     pprint.pprint(res)
-    track = spotify.current_user_playing_track()
+
+    
+    track = sp.current_user_playing_track()
     if not track is None:
         return render_template('base.html', output = track)
     return f"No track currently playing."
@@ -145,10 +173,16 @@ def current_user():
 
 @app.route('/my_top')
 def my_top():
+    
+    """
+    # Find my top artists and tracks in ranges = ['short_term', 'medium_term', 'long_term']
 
-
+    """
     scope = "user-top-read"
-    html_string ='\ufeff'
+    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
++"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
++"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
++"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
@@ -166,18 +200,33 @@ def my_top():
     for sp_range in ['short_term', 'medium_term', 'long_term']:
         html_string += f'<h2>{sp_range}</h2>'
         pt_top=PrettyTable()
-        pt_top.field_names=['no','name','url','genres','album cover','uri']
+        pt_top.field_names=['no','cover','name','genres','uri']
         results = spotify.current_user_top_artists(time_range=sp_range, limit=50)
         for i, item in enumerate(results['items']):
-            pt_top.add_row([i, item['name'], item['external_urls']['spotify'],item['genres'],item['images'][0]['url'],item['uri']])
+            #pt_top.add_row([i, item['name'], item['external_urls']['spotify'],item['genres'],item['images'][2]['url'],item['uri']])
+            pt_top.add_row([
+                i,
+                "<a href='"+item['external_urls']['spotify']+"'>"+"<img src='"+item['images'][2]['url']+"' width='100' ></a>",
+                "<a href='"+item['external_urls']['spotify']+"'>"+item['name']+"</a>",
+                item['genres'],
+                item['uri']
+            ])
+
+        
+
 
         html_string += pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"})
 
-    return render_template('base.html', output = html.unescape(html_string))
+    #https://stackoverflow.com/questions/19315567/returning-rendered-template-with-flask-restful-shows-html-in-browser
+    return make_response(render_template('base.html', output = html.unescape(html_string)))
 
 
 @app.route('/recommended_artists') 
 def recommended_artists(): 
+
+    """"
+    # Retrive Sportify's recommended tracks beased on my top artists sp_range in ['short_term', 'medium_term', 'long_term']
+    """
     scope = "user-top-read,user-library-read"
     pt_top=PrettyTable()
     #pt_top.field_names=['no','name','url','genres','album cover','uri']
