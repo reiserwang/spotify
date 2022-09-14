@@ -41,8 +41,12 @@ os.environ['SPOTIPY_CLIENT_ID'] = credentials["SPOTIFY_CLIENT_ID"]
 os.environ['SPOTIPY_CLIENT_SECRET'] = credentials["SPOTIFY_CLIENT_SECRET"]
 os.environ['SPOTIPY_REDIRECT_URI'] = credentials["SPOTIPY_REDIRECT_URI"]
 caches_folder = './.spotify_caches/'
+user_folder = './.user'
 if not os.path.exists(caches_folder):
     os.makedirs(caches_folder)
+if not os.path.exists(user_folder):
+    os.makedirs(user_folder)
+
 
 def session_cache_path():
     try:
@@ -171,6 +175,7 @@ def current_playing():
 
         
     track = spotify.current_user_playing_track()
+    logger.info(json.dumps(track, indent=4))
     if track is not None:
         track['item']["feature"] = spotify.audio_features(track['item']['uri'])[0]
         current_track = {}
@@ -182,17 +187,21 @@ def current_playing():
         current_track['artist_name'] = track['item']['artists'][0]['name']
         current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
         current_track['feature'] = track['item']['feature']
+        
+        current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']],limit = 50)
         """
         #debug
         """
-        with open('current_playing.json', 'w', encoding='utf-8') as f:    
-            pprint.pprint(track, f) 
+
+        logger.info(json.dumps(current_track['feature'], indent =4))
+        with open('.user/current_playing.json', 'w', encoding='utf-8') as f:    
+            json.dump(current_track, f) 
 
 
 
 
         pt_top=PrettyTable()
-        pt_top.field_names=['cover','track name', 'album name','artist','feature']
+        pt_top.field_names=['cover','track name', 'album name','artist','feature', ]
                 
         pt_top.add_row([
                 
@@ -205,8 +214,13 @@ def current_playing():
 
 
 
-
         html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
+        html_string +='<h2>Recommendations</h2>'
+
+        """
+        # To-Do - add recommendation code 
+        
+        """
         return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
        
     return f"No track currently playing."
@@ -261,27 +275,44 @@ def my_top():
     ranges = ['short_term', 'medium_term', 'long_term']
     genres_list = []
     genres_dict = {}
+    fav_artists = []
+    artist= {}
+    pt_top=PrettyTable()
+    pt_top.field_names=['no','cover','name','genres','uri']
+    pt_top.title = "Most Played Artist"
+    #html_string += f'<h2>{sp_range}</h2><div class="collapsible_section>'
+
     for sp_range in ['short_term', 'medium_term', 'long_term']:
-        html_string += f'<h2>{sp_range}</h2>'
-        pt_top=PrettyTable()
-        pt_top.field_names=['no','cover','name','genres','uri']
+        #https://www.w3schools.com/howto/howto_js_collapsible.asp
+        #html_string += f'<button type="button" class="collapsible"><h2>{sp_range}</h2></button><div class="collapsible_section>"'
         results = spotify.current_user_top_artists(time_range=sp_range, limit=50)
+        pt_top.add_row([sp_range,"","","",""])
+        
         for i, item in enumerate(results['items']):
             #pt_top.add_row([i, item['name'], item['external_urls']['spotify'],item['genres'],item['images'][2]['url'],item['uri']])
             pt_top.add_row([
-                i,
+                i+1,
                 "<a href='"+item['external_urls']['spotify']+"'>"+"<img src='"+item['images'][2]['url']+"' width='100' ></a>",
                 "<a href='"+item['external_urls']['spotify']+"'>"+item['name']+"</a>",
                 item['genres'],
                 item['uri']
             ])
+            artist['term'] = sp_range
+            artist['rank'] = i
+            artist['name'] = item['name']
+            artist['uri'] = item['uri']
+            artist['genres']=item['genres']
+            fav_artists.append(artist)
+            artist={}
             for genre in item['genres']:
                 genres_list.append(genre)        
         
         
 
 
-        html_string += pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"})
+        #html_string += pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"})
+    html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
+    html_string += "</div>"
 
     top_10={}
     genres_dict = dict(zip(list(genres_list),[list(genres_list).count(i) for i in list(genres_list)]))
@@ -291,7 +322,14 @@ def my_top():
 
     top_10 = (Counter(genres_dict)).most_common(10)
 
+    with open('./.user/fav_artists.json', 'w', encoding='utf-8') as f:   
+            json.dump(fav_artists, f) 
+
     logging.info(top_10)
+    with open('./.user/top_genres.json', 'w', encoding='utf-8') as f:   
+            json.dump(genres_dict, f) 
+
+    
     pt_summary=PrettyTable()
     pt_summary.field_names=['Genre','Count']
     for (k,v) in top_10:
@@ -344,7 +382,7 @@ def recommended():
         """
         with open('recommend.json', 'w', encoding='utf-8') as f:   
             print(ref_artists, file = f) 
-            pprint.pprint(results, f) 
+            json.dump(results, f) 
 
         if len(items) > 0:
             artist_id = items[0]['id']

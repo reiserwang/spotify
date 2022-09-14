@@ -18,8 +18,48 @@
             text-decoration: none;
             font-family: Helvetica Neue,Helvetica,sans-serif;
         }
+        .collapsible {
+            background-color: #777;
+            color: white;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+        }
 
+        .active, .collapsible:hover {
+            background-color: #555;
+        }
+
+        .collapsible_section {
+           
+            padding: 0 18px;
+            background-color: white;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+
+        }
     </style>
+    <script>
+        var coll = document.getElementsByClassName("collapsible");
+        var i;
+        
+        for (i = 0; i < coll.length; i++) {
+          coll[i].addEventListener("click", function() {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.maxHeight){
+              content.style.maxHeight = null;
+            } else {
+              content.style.maxHeight = content.scrollHeight + "px";
+            }
+          });
+        }
+        </script>
 </head>
 <body>
     <nav>
@@ -27,7 +67,7 @@
         <a href = "{{ url_for('playlists') }}" target="_self">My Playlist</a>
         <a href = "{{ url_for('current_playing') }}" target="_self">Current Playing</a>
         <a href = "{{ url_for('my_top') }}" target="_self">My Top List</a>
-        <a href = "{{ url_for('recommended_artists') }}" target="_self">Recommended</a>
+        <a href = "{{ url_for('recommended') }}" target="_self">Recommended</a>
         <a href = "{{ url_for('current_user') }}" target="_self">Me</a>
     </nav>
     <hr>
@@ -37,4 +77,5 @@
         {% endblock %}
     </div>
 </body>
+
 </html>
