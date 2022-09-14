@@ -13,10 +13,19 @@ import pprint
 from prettytable import PrettyTable
 import html
 
+from collections import Counter
 sys.stdin.reconfigure(encoding='utf-8')
 sys.stdout.reconfigure(encoding='utf-8')
 
+logging.basicConfig(
+    #filename='app.log', 
+    #filemode='a',
+    stream = sys.stdout,
+    format ='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO)
+
 logger = logging.getLogger(__name__)
+
 
 app = Flask(__name__, template_folder = 'template')
 app.config['SECRET_KEY'] = os.urandom(64)
@@ -26,7 +35,6 @@ Session(app)
 
 with open("credentials.json", "r") as f:
     credentials = json.load(f)
-
 
 client_credentials_manager = SpotifyClientCredentials(credentials["SPOTIFY_CLIENT_ID"], credentials["SPOTIFY_CLIENT_SECRET"])
 os.environ['SPOTIPY_CLIENT_ID'] = credentials["SPOTIFY_CLIENT_ID"]
@@ -44,6 +52,7 @@ def session_cache_path():
     return caches_folder + session.get('uuid')
 
 
+
 @app.route('/')
 def index():
 
@@ -52,25 +61,34 @@ def index():
         session['uuid'] = str(uuid.uuid4())
 
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
-    auth_manager = spotipy.oauth2.SpotifyOAuth(scope='user-read-currently-playing playlist-modify-private',
-                                                cache_handler=cache_handler, 
-                                               show_dialog=True)
+    auth_manager = spotipy.oauth2.SpotifyOAuth(scope='user-library-read,user-read-currently-playing,playlist-modify-private,user-read-playback-state,user-modify-playback-state',
+                                            cache_handler=cache_handler, 
+                                            show_dialog=True)
+    #spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret= client_secret,scope=scope, redirect_uri="http://localhost:8888/callback"))
 
+    """
+    https://community.spotify.com/t5/Spotify-for-Developers/Authorization-Code-Flow-don-t-want-to-cache-tokens/td-p/4989228
+    """
     if request.args.get("code"):
         # Step 2. Being redirected from Spotify auth page
         auth_manager.get_cached_token()
+        token_info = auth_manager.get_access_token(request.args.get('code'), as_dict = True, check_cache=False)
+        logger.info(token_info)
         return redirect('/')
 
     # Step 3. Signed in, display data
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        
         # Step 2. Display sign in link when no token
         auth_url = auth_manager.get_authorize_url()
+        logger.info(auth_url)
         return f'<h2><a href="{auth_url}">Sign in</a></h2>'
     
     # Step 4. Signed in, display data
     spotify = spotipy.Spotify(auth_manager=auth_manager)
 
     current_user = spotify.current_user()
+    logger.info(current_user)
     output = "You're signed in." + current_user['display_name']
     return render_template('base.html', output = output)
 
@@ -138,48 +156,44 @@ def current_playing():
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
-    sp = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+    #spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
 
-
-    scope = "user-top-read"
+    
     html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
             +"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
             +"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
             +"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
-    cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
-    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
-        logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
-        return redirect('/')
-
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+    
+ 
 
         
     track = spotify.current_user_playing_track()
-    track['item']["feature"] = spotify.audio_features(track['item']['uri'])[0]
-    current_track = {}
-    current_track['name'] = track['item']['name']
-    current_track['url'] = track['item']['external_urls']['spotify']
-    current_track['album_name'] = track['item']['album']['name']
-    current_track['album_image'] = track['item']['album']['images'][0]['url']
-    current_track['album_url'] = track['item']['album']['external_urls']['spotify']
-    current_track['artist_name'] = track['item']['artists'][0]['name']
-    current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
-    current_track['feature'] = track['item']['feature']
-    if not track is None:
+    if track is not None:
+        track['item']["feature"] = spotify.audio_features(track['item']['uri'])[0]
+        current_track = {}
+        current_track['name'] = track['item']['name']
+        current_track['url'] = track['item']['external_urls']['spotify']
+        current_track['album_name'] = track['item']['album']['name']
+        current_track['album_image'] = track['item']['album']['images'][0]['url']
+        current_track['album_url'] = track['item']['album']['external_urls']['spotify']
+        current_track['artist_name'] = track['item']['artists'][0]['name']
+        current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
+        current_track['feature'] = track['item']['feature']
         """
         #debug
         """
         with open('current_playing.json', 'w', encoding='utf-8') as f:    
             pprint.pprint(track, f) 
-        
+
 
 
 
         pt_top=PrettyTable()
         pt_top.field_names=['cover','track name', 'album name','artist','feature']
-              
+                
         pt_top.add_row([
                 
                 "<a href='"+current_track['album_url']+"'>"+"<img src='"+current_track['album_image']+"' width='100' ></a>",
@@ -189,7 +203,7 @@ def current_playing():
                 current_track['feature']
             ])
 
-        
+
 
 
         html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
@@ -237,14 +251,16 @@ def my_top():
         logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
 
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
-    results =  spotify.current_user_top_artists(time_range='short_term', limit=50)
-    #return render_template('base.html', output = json.dumps(results)) 
+    spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
 
+
+    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        return redirect('/')
 
     # User Top Artists and Tracks
     ranges = ['short_term', 'medium_term', 'long_term']
-
+    genres_list = []
+    genres_dict = {}
     for sp_range in ['short_term', 'medium_term', 'long_term']:
         html_string += f'<h2>{sp_range}</h2>'
         pt_top=PrettyTable()
@@ -259,24 +275,43 @@ def my_top():
                 item['genres'],
                 item['uri']
             ])
-
+            for genre in item['genres']:
+                genres_list.append(genre)        
+        
         
 
 
         html_string += pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"})
 
+    top_10={}
+    genres_dict = dict(zip(list(genres_list),[list(genres_list).count(i) for i in list(genres_list)]))
+    # Python3: In Python 2.x - .items() returned a list of (key, value) pairs. 
+    # In Python 3.x, .items() is now an itemview object. So, list(dict.items()) is required for what was dict.items() in Python 2.x.
+    # top_10 = sorted(genres_dict,key = lambda x: x[1][:10])
+
+    top_10 = (Counter(genres_dict)).most_common(10)
+
+    logging.info(top_10)
+    pt_summary=PrettyTable()
+    pt_summary.field_names=['Genre','Count']
+    for (k,v) in top_10:
+        pt_summary.add_row([k,v])
+
+    html_string += "<br/><h2> Your Most Played Genres </h2>"
+    html_string += pt_summary.get_html_string(format = True, attributes={"id":"results"})
+
     #https://stackoverflow.com/questions/19315567/returning-rendered-template-with-flask-restful-shows-html-in-browser
     return make_response(render_template('base.html', output = html.unescape(html_string)))
 
 
-@app.route('/recommended_artists') 
-def recommended_artists(): 
+@app.route('/recommended') 
+def recommended(): 
 
     """"
     # Discover new artists - Retrive Sportify's recommended tracks beased on my top artists sp_range in ['short_term', 'medium_term', 'long_term']
     # Find similar tracks based on currently playing (valence, tempo, danceability)
     """
-    scope = "user-top-read,user-library-read"
+    #scope = "user-top-read,user-library-read"
     pt_top=PrettyTable()
     #pt_top.field_names=['no','name','url','genres','album cover','uri']
     html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
@@ -307,7 +342,8 @@ def recommended_artists():
         """
         #debug
         """
-        with open('recommend.json', 'w', encoding='utf-8') as f:    
+        with open('recommend.json', 'w', encoding='utf-8') as f:   
+            print(ref_artists, file = f) 
             pprint.pprint(results, f) 
 
         if len(items) > 0:
@@ -317,7 +353,7 @@ def recommended_artists():
             logger.debug("recommendatons =")
             for track in results['tracks']:
                 pt_top.add_row(track['name'],track['artists'][0]['name'])
-
+    output = ""
     output += pt_top.get_html_string()
     #return f'{html_string}'
     headers = {'Content-Type': 'text/html'}
