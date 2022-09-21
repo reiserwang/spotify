@@ -34,9 +34,16 @@ The key challenges in the past is to have a vast music library service, algorith
     ]
     ~~~~
 
-## Recruitment
-Looking for \#Flask \#Python \#Javascript \#UX \#node.js \#React \#DataScience professionals/enthusiasts/amateurs 
-(*otherwise it could just be a amateur's playground filled with json and matplotlib*)
+## How to use the (nasty) code
+Currently Sportify's web-based authenitcation (using cached token, which is stored under **./spotify_caches/<*UUID*>** by default) is used for ID/credential required by API and data permission. In case there are still hard-coded ID/credential codes, change following in **credentials.json.example** and rename it to **credentials.json**
+
+``` json
+{
+    "SPOTIFY_CLIENT_ID" : "<YOUR_SPOTIFY_CLIENT_ID>",
+    "SPOTIFY_CLIENT_SECRET" : "<YOUR_SPOTIFY_CLIENT_SECRET>",
+    "SPOTIPY_REDIRECT_URI": "http://localhost:8080"
+}
+```
 
 ## Resources
 - [Spotify API](https://developer.spotify.com) 
