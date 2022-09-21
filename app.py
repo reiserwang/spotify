@@ -47,6 +47,7 @@ if not os.path.exists(caches_folder):
 if not os.path.exists(user_folder):
     os.makedirs(user_folder)
 
+sportify_client = spotipy.client.Spotify()
 
 def session_cache_path():
     try:
@@ -55,20 +56,21 @@ def session_cache_path():
         logger.exception()
     return caches_folder + session.get('uuid')
 
-
-
 @app.route('/')
 def index():
-
+    """
+    # Get Session and create auth_manager (get cached token or authorize url
+    """
     if not session.get('uuid'):
         # Step 1. Visitor is unknown, give random ID
         session['uuid'] = str(uuid.uuid4())
 
+    logger.info("UUID: "+session.get('uuid'))
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
-    auth_manager = spotipy.oauth2.SpotifyOAuth(scope='user-library-read,user-read-currently-playing,playlist-modify-private,user-read-playback-state,user-modify-playback-state',
+    auth_manager = spotipy.oauth2.SpotifyOAuth(scope='user-library-read,user-read-currently-playing,playlist-modify-private,user-read-playback-state,user-modify-playback-state,user-top-read',
                                             cache_handler=cache_handler, 
                                             show_dialog=True)
-    #spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret= client_secret,scope=scope, redirect_uri="http://localhost:8888/callback"))
+    # spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret= client_secret,scope=scope, redirect_uri="http://localhost:8080/callback"))
 
     """
     https://community.spotify.com/t5/Spotify-for-Developers/Authorization-Code-Flow-don-t-want-to-cache-tokens/td-p/4989228
@@ -89,9 +91,11 @@ def index():
         return f'<h2><a href="{auth_url}">Sign in</a></h2>'
     
     # Step 4. Signed in, display data
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+    sportify_client = spotipy.Spotify(auth_manager=auth_manager)
 
-    current_user = spotify.current_user()
+    logger.info(type(sportify_client))
+
+    current_user = sportify_client.current_user()
     logger.info(current_user)
     output = "You're signed in." + current_user['display_name']
     return render_template('base.html', output = output)
@@ -146,7 +150,7 @@ def playlists():
             "<a href='"+item['external_urls']['spotify']+"'>"+item['name']+"</a>",
             item['uri']
             ])
-    html_string += pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"})
+    html_string += ("<h2>Public Playlist</h2><br/>"+pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"}))
     
     return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
 
@@ -155,15 +159,15 @@ def playlists():
 def current_playing():
 
 
-    scope = "user-read-playback-state,user-modify-playback-state,user-read-currently-playing"
+    scope = "user-read-playback-state,user-modify-playback-state,user-read-currently-playing, user-top-read"
 
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
         logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
-    #spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+    spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+    #spotify = spotipy.Spotify(auth_manager=auth_manager)
 
     
     html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
@@ -188,14 +192,18 @@ def current_playing():
         current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
         current_track['feature'] = track['item']['feature']
         
-        current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']],limit = 50)
+        
+        current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']],limit = 10)
+    
+    
+    
         """
         #debug
         """
 
         logger.info(json.dumps(current_track['feature'], indent =4))
         with open('.user/current_playing.json', 'w', encoding='utf-8') as f:    
-            json.dump(current_track, f) 
+            json.dump(current_track, f, indent=4) 
 
 
 
@@ -219,10 +227,29 @@ def current_playing():
 
         """
         # To-Do - add recommendation code 
-        
+    
+
         """
+        pt_recommend = PrettyTable()
+        pt_recommend.field_names=['name','album','artist','uri']
+        for i, rec in enumerate(current_track['recommendations']['tracks']):
+            if spotify.audio_features(rec[i]['uri'])[0] is not None:
+                rec[i]['feature'] = spotify.audio_features(rec[i]['uri'])[0]
+            del(rec[i]['available_market'])
+            logger.info(len(rec))
+            logger.info(rec)
+            pt_recommend.add_row([
+                "<a href='"+rec[i]['external_urls']['spotify']+"'>"+rec[i]['name']+"</a>",
+                "<a href='"+rec[i]['album']['external_urls']['spotify']+"'>"+"<img src='"+rec[i]['album']['images'][1]['url']+"' width='100' ></a>",
+                "<a href='"+rec[i]['artists'][0]['external_urls']['spotify']+"'>"+rec[i]['artists'][0]['name']+"</a>",
+                "<a href='"+current_track['artist_url']+"'>"+current_track['artist_name']+"</a>",
+                "<feature here>"
+            ])
+
+        html_string += pt_recommend.get_html_string(format = True, attributes={"id":"results"})
         return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
-       
+
+    
     return f"No track currently playing."
 
 
@@ -265,8 +292,8 @@ def my_top():
         logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
 
-    spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
-
+    
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
 
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
         return redirect('/')
@@ -323,13 +350,11 @@ def my_top():
     top_10 = (Counter(genres_dict)).most_common(10)
 
     with open('./.user/fav_artists.json', 'w', encoding='utf-8') as f:   
-            json.dump(fav_artists, f) 
+            json.dump(fav_artists, f, indent=4) 
 
     logging.info(top_10)
     with open('./.user/top_genres.json', 'w', encoding='utf-8') as f:   
-            json.dump(genres_dict, f) 
-
-    
+            json.dump(genres_dict, f, indent=4) 
     pt_summary=PrettyTable()
     pt_summary.field_names=['Genre','Count']
     for (k,v) in top_10:
@@ -362,35 +387,25 @@ def recommended():
         logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
 
-    #sp = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+   
     sp = spotipy.Spotify(auth_manager=auth_manager)
     ref_artists = []
 
     for sp_range in ['short_term', 'medium_term', 'long_term']:
         results = sp.current_user_top_artists(time_range=sp_range, limit=5)
-        print(results)
+        # logger.info(results)
         for i, item in enumerate(results['items']):
-            ref_artists.append(item['uri'])
+            ref_artists.append(item['uri'].replace("spotify:artist:",""))
     #ref_artists = list(set(ref_artists))
-    print(ref_artists)
+    logger.info(ref_artists)
 
-    for artist in ref_artists:
-        results = sp.search(q=artist, type='artist')
-        items = results['artists']['items']
-        """
-        #debug
-        """
-        with open('recommend.json', 'w', encoding='utf-8') as f:   
-            print(ref_artists, file = f) 
-            json.dump(results, f) 
 
-        if len(items) > 0:
-            artist_id = items[0]['id']
-            logger.debug("artist_id = ", artist_id)
-            results = sp.recommendations(seed_artists=[artist_id])
-            logger.debug("recommendatons =")
-            for track in results['tracks']:
-                pt_top.add_row(track['name'],track['artists'][0]['name'])
+    results = sp.recommendations(seed_artists=ref_artists)
+    logger.info(results)
+    with open('./.user/recommend.json', 'w', encoding='utf-8') as f:   
+        json.dump(results, f, indent = 4)
+    for track in results['tracks']:
+        pt_top.add_row(track['name'],track['artists'][0]['name'])
     output = ""
     output += pt_top.get_html_string()
     #return f'{html_string}'
