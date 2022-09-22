@@ -42,6 +42,11 @@ os.environ['SPOTIPY_CLIENT_SECRET'] = credentials["SPOTIFY_CLIENT_SECRET"]
 os.environ['SPOTIPY_REDIRECT_URI'] = credentials["SPOTIPY_REDIRECT_URI"]
 caches_folder = './.spotify_caches/'
 user_folder = './.user'
+
+seed_genres = []
+seed_artists =[]
+seed_tracks = []
+
 if not os.path.exists(caches_folder):
     os.makedirs(caches_folder)
 if not os.path.exists(user_folder):
@@ -166,8 +171,8 @@ def current_playing():
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
         logger.debug("False: auth_manager.validate_token(cache_handler.get_cached_token()")
         return redirect('/')
-    spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
-    #spotify = spotipy.Spotify(auth_manager=auth_manager)
+    #spotify = spotipy.Spotify(client_credentials_manager=SpotifyOAuth(scope=scope))
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
 
     
     html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
@@ -179,77 +184,82 @@ def current_playing():
 
         
     track = spotify.current_user_playing_track()
-    logger.info(json.dumps(track, indent=4))
-    if track is not None:
-        track['item']["feature"] = spotify.audio_features(track['item']['uri'])[0]
-        current_track = {}
-        current_track['name'] = track['item']['name']
-        current_track['url'] = track['item']['external_urls']['spotify']
-        current_track['album_name'] = track['item']['album']['name']
-        current_track['album_image'] = track['item']['album']['images'][0]['url']
-        current_track['album_url'] = track['item']['album']['external_urls']['spotify']
-        current_track['artist_name'] = track['item']['artists'][0]['name']
-        current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
-        current_track['feature'] = track['item']['feature']
+    logger.info("******"+json.dumps(track, indent=4))
+
+    track['item']["feature"] = spotify.audio_features(track['item']['uri'])[0]
+    current_track = {}
+    current_track['name'] = track['item']['name']
+    current_track['url'] = track['item']['external_urls']['spotify']
+    current_track['album_name'] = track['item']['album']['name']
+    current_track['album_image'] = track['item']['album']['images'][0]['url']
+    current_track['album_url'] = track['item']['album']['external_urls']['spotify']
+    current_track['artist_name'] = track['item']['artists'][0]['name']
+    current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
+    current_track['feature'] = track['item']['feature']
+    
+    logger.info(seed_genres)
+    current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']], seed_tracks=[current_track['url']],seed_genres = seed_genres,limit = 10)
+
+
+
+    """
+    #debug
+    """
+
+    logger.info(json.dumps(current_track['feature'], indent =4))
+    with open('.user/current_playing.json', 'w', encoding='utf-8') as f:    
+        json.dump(current_track, f, indent=4) 
+
+
+
+
+    pt_top=PrettyTable()
+    pt_top.field_names=['cover','track name', 'album name','artist','feature', ]
+            
+    pt_top.add_row([
+            
+            "<a href='"+current_track['album_url']+"'>"+"<img src='"+current_track['album_image']+"' width='100' ></a>",
+            "<a href='"+current_track['url']+"'>"+current_track['name']+"</a>",
+            "<a href='"+current_track['album_url']+"'>"+current_track['album_name']+"</a>",
+            "<a href='"+current_track['artist_url']+"'>"+current_track['artist_name']+"</a>",
+            current_track['feature']
+        ])
+
+
+
+    html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
+    html_string +='<h2>Recommendations</h2>'
+
+    """
+    # To-Do - add recommendation code 
+
+
+    """
+
+
+    pt_recommend = PrettyTable()
+    pt_recommend.field_names=['name','album','artist','feature']
+    for i, rec in enumerate(current_track['recommendations']['tracks']):
         
+        if spotify.audio_features(rec['uri'])[0] is not None:
+            rec['feature'] = spotify.audio_features(rec['uri'])[0]
         
-        current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']],limit = 10)
-    
-    
-    
-        """
-        #debug
-        """
+        #del(rec['available_market'])
+        
+        logger.info(len(rec))
+        logger.info(rec)
+        pt_recommend.add_row([
+            "<a href='"+rec['external_urls']['spotify']+"'>"+rec['name']+"</a>",
+            "<a href='"+rec['album']['external_urls']['spotify']+"'>"+"<img src='"+rec['album']['images'][1]['url']+"' width='100' ></a>",
+            "<a href='"+rec['artists'][0]['external_urls']['spotify']+"'>"+rec['artists'][0]['name']+"</a>",
+            rec['feature']
+        ])
 
-        logger.info(json.dumps(current_track['feature'], indent =4))
-        with open('.user/current_playing.json', 'w', encoding='utf-8') as f:    
-            json.dump(current_track, f, indent=4) 
-
-
-
-
-        pt_top=PrettyTable()
-        pt_top.field_names=['cover','track name', 'album name','artist','feature', ]
-                
-        pt_top.add_row([
-                
-                "<a href='"+current_track['album_url']+"'>"+"<img src='"+current_track['album_image']+"' width='100' ></a>",
-                "<a href='"+current_track['url']+"'>"+current_track['name']+"</a>",
-                "<a href='"+current_track['album_url']+"'>"+current_track['album_name']+"</a>",
-                "<a href='"+current_track['artist_url']+"'>"+current_track['artist_name']+"</a>",
-                current_track['feature']
-            ])
+    html_string += pt_recommend.get_html_string(format = True, attributes={"id":"results"})
+   
+    return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
 
 
-
-        html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
-        html_string +='<h2>Recommendations</h2>'
-
-        """
-        # To-Do - add recommendation code 
-    
-
-        """
-        pt_recommend = PrettyTable()
-        pt_recommend.field_names=['name','album','artist','uri']
-        for i, rec in enumerate(current_track['recommendations']['tracks']):
-            if spotify.audio_features(rec[i]['uri'])[0] is not None:
-                rec[i]['feature'] = spotify.audio_features(rec[i]['uri'])[0]
-            del(rec[i]['available_market'])
-            logger.info(len(rec))
-            logger.info(rec)
-            pt_recommend.add_row([
-                "<a href='"+rec[i]['external_urls']['spotify']+"'>"+rec[i]['name']+"</a>",
-                "<a href='"+rec[i]['album']['external_urls']['spotify']+"'>"+"<img src='"+rec[i]['album']['images'][1]['url']+"' width='100' ></a>",
-                "<a href='"+rec[i]['artists'][0]['external_urls']['spotify']+"'>"+rec[i]['artists'][0]['name']+"</a>",
-                "<a href='"+current_track['artist_url']+"'>"+current_track['artist_name']+"</a>",
-                "<feature here>"
-            ])
-
-        html_string += pt_recommend.get_html_string(format = True, attributes={"id":"results"})
-        return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
-
-    
     return f"No track currently playing."
 
 
@@ -348,6 +358,8 @@ def my_top():
     # top_10 = sorted(genres_dict,key = lambda x: x[1][:10])
 
     top_10 = (Counter(genres_dict)).most_common(10)
+    seed_genres = top_10
+    seed_artists = fav_artists
 
     with open('./.user/fav_artists.json', 'w', encoding='utf-8') as f:   
             json.dump(fav_artists, f, indent=4) 
@@ -399,8 +411,16 @@ def recommended():
     #ref_artists = list(set(ref_artists))
     logger.info(ref_artists)
 
+    """
+    seed_genres = []
+seed_artists =[]
+seed_tracks = []
+    """
 
-    results = sp.recommendations(seed_artists=ref_artists)
+    logger.info("seed_genres = " + str(seed_genres))
+    logger.info("seed_artists = " + str(seed_artists))
+    logger.info("seed_tracks = " +  str(seed_tracks))
+    results = sp.recommendations(seed_artists=ref_artists, seed_genres = seed_genres, seed_tracks= seed_tracks)
     logger.info(results)
     with open('./.user/recommend.json', 'w', encoding='utf-8') as f:   
         json.dump(results, f, indent = 4)

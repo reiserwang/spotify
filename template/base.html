@@ -43,6 +43,8 @@
             transition: max-height 0.2s ease-out;
 
         }
+
+
     </style>
     <script>
         var coll = document.getElementsByClassName("collapsible");
@@ -74,6 +76,11 @@
     <div class="content">
         {% block content %} 
         <p>{{ output|safe }}</p>
+        {% endblock %}
+    </div>
+    <div class="log">
+        {% block log %} 
+        <p>{{ loggeroutput|safe }}</p>
         {% endblock %}
     </div>
 </body>
