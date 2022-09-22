@@ -14,6 +14,9 @@ from prettytable import PrettyTable
 import html
 
 from collections import Counter
+
+import matplotlib.pyplot as plt
+
 sys.stdin.reconfigure(encoding='utf-8')
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -27,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-app = Flask(__name__, template_folder = 'template')
+app = Flask(__name__, template_folder = 'template', static_url_path = '/static')
 app.config['SECRET_KEY'] = os.urandom(64)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = './.flask_session/'
@@ -106,6 +109,79 @@ def index():
     return render_template('base.html', output = output)
 
 
+@app.route('/search', methods =['GET','POST'])
+def search():
+
+    keyword = request.form.get('keyword')
+    type = request.form.get('type')
+    #logger.info("###"+keyword+ type)
+
+
+    cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
+    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        return redirect('/')
+
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
+
+
+    results=spotify.search(q = "artist:"+ keyword, type=type, limit=50)
+
+    with open('search_results.json', 'w', encoding='utf-8') as f:    
+        f.write(json.dumps(results,ensure_ascii=False, indent = 4))
+
+    logger.info(results)
+
+
+    search_results_in_items = []
+
+    for i, t in enumerate(results['artists']['items']):
+
+        
+
+        t["feature"] = spotify.audio_features(t['uri'])[0]
+        
+        
+        # pitch and timbre from analyis.
+
+        try:
+            if t["feature"]['analysis_url'] is not None:
+                ana_url = t["feature"]['analysis_url']
+                if spotify._get(ana_url) is not None:
+                    t["feature"]["analyis"] = sp._get(ana_url)
+        except TypeError as e:
+            #logging.exception(e)
+            pass
+         
+        
+        search_results_in_items.append(t)       
+
+    logger.info(search_results_in_items)
+    with open('search_results.json', 'w', encoding='utf-8') as f:    
+        f.write(json.dumps(search_results_in_items,ensure_ascii=False, indent = 4))
+
+    pt_top=PrettyTable()
+    pt_top.format = True
+    # pt_top.set_style(MSWORD_FRIENDLY)
+    
+    pt_top.field_names=['Image','Name', 'Genres', 'Popularity']
+
+    logger.info(len(search_results_in_items))
+    for i in range(len(search_results_in_items)):            
+        pt_top.add_row(["<a href='"+search_results_in_items[i]['external_urls']['spotify']+"'>"+"<img src='"+search_results_in_items[i]['images'][1]['url']+"'></a>",
+                    "<a href='"+search_results_in_items[i]['external_urls']['spotify']+"'>"+search_results_in_items[i]['name']+"</a>",
+                    search_results_in_items[i]['genres'],
+                    search_results_in_items[i]['popularity']
+                    ])
+
+        #logging.info(search_results_in_items[i]['external_urls']['spotify'] + search_results_in_items[i]['album']['images'][1]['url'])
+
+
+    html_text = '\ufeff'+html.unescape(pt_top.get_html_string(sortby="Popularity",reversesort = True, format = True, attributes={"id":"results"}))+"</html>"
+    
+    
+    logger.info(html_text)
+    return make_response(render_template('search.html', output = html.unescape(html_text)),200, {'Content-Type':'text/html'})
 
 
 @app.route('/sign_out')
@@ -139,10 +215,7 @@ def playlists():
 
     results = spotify.current_user_playlists()
 
-    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
-+"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
-+"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
-+"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
+    html_string ='\ufeff'
     pt_top=PrettyTable()
     pt_top.field_names=['no','playlist cover','name','uri']
 
@@ -175,10 +248,7 @@ def current_playing():
     spotify = spotipy.Spotify(auth_manager=auth_manager)
 
     
-    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
-            +"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
-            +"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
-            +"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
+    html_string ='\ufeff'
     
  
 
@@ -197,9 +267,9 @@ def current_playing():
     current_track['artist_url'] = track['item']['artists'][0]['external_urls']['spotify']
     current_track['feature'] = track['item']['feature']
     
+    
     logger.info(seed_genres)
-    current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']], seed_tracks=[current_track['url']],seed_genres = seed_genres,limit = 10)
-
+    current_track['recommendations'] = spotify.recommendations(seed_artists = [track['item']['artists'][0]['uri']], seed_tracks=[current_track['url']],limit = 20)
 
 
     """
@@ -214,7 +284,7 @@ def current_playing():
 
 
     pt_top=PrettyTable()
-    pt_top.field_names=['cover','track name', 'album name','artist','feature', ]
+    pt_top.field_names=['cover','track name', 'album name','artist','tempo','danceability','valence','feature', ]
             
     pt_top.add_row([
             
@@ -222,12 +292,15 @@ def current_playing():
             "<a href='"+current_track['url']+"'>"+current_track['name']+"</a>",
             "<a href='"+current_track['album_url']+"'>"+current_track['album_name']+"</a>",
             "<a href='"+current_track['artist_url']+"'>"+current_track['artist_name']+"</a>",
+            current_track['feature']['tempo'],
+            current_track['feature']['danceability'],
+            current_track['feature']['valence'],
             current_track['feature']
         ])
 
 
 
-    html_string += pt_top.get_html_string(format = True, attributes={"id":"results"})
+    html_string += pt_top.get_html_string(format = True)
     html_string +='<h2>Recommendations</h2>'
 
     """
@@ -238,24 +311,28 @@ def current_playing():
 
 
     pt_recommend = PrettyTable()
-    pt_recommend.field_names=['name','album','artist','feature']
+    pt_recommend.field_names=['album','name','artist','tempo','danceability','valence','feature']
     for i, rec in enumerate(current_track['recommendations']['tracks']):
         
         if spotify.audio_features(rec['uri'])[0] is not None:
             rec['feature'] = spotify.audio_features(rec['uri'])[0]
         
-        #del(rec['available_market'])
+        seed_tracks.append(rec['uri'].replace("spotify:track:",""))
+        del(rec['album']['available_markets'])
         
         logger.info(len(rec))
         logger.info(rec)
         pt_recommend.add_row([
-            "<a href='"+rec['external_urls']['spotify']+"'>"+rec['name']+"</a>",
             "<a href='"+rec['album']['external_urls']['spotify']+"'>"+"<img src='"+rec['album']['images'][1]['url']+"' width='100' ></a>",
+            "<a href='"+rec['external_urls']['spotify']+"'>"+rec['name']+"</a>",
             "<a href='"+rec['artists'][0]['external_urls']['spotify']+"'>"+rec['artists'][0]['name']+"</a>",
+            rec['feature']['tempo'],
+            rec['feature']['danceability'],
+            rec['feature']['valence'],
             rec['feature']
         ])
 
-    html_string += pt_recommend.get_html_string(format = True, attributes={"id":"results"})
+    html_string += pt_recommend.get_html_string(format = True, sortby="valence",reversesort = False, attributes={"id":"results"})
    
     return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
 
@@ -292,10 +369,7 @@ def my_top():
 
     """
     scope = "user-top-read"
-    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
-+"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
-+"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
-+"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
+    html_string ='\ufeff'
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
@@ -307,6 +381,50 @@ def my_top():
 
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
         return redirect('/')
+
+
+    # Recent Top Tracks
+
+    ranges = ['short_term']
+    tempo = []
+    valence = []
+    danceability = []
+    track_name = []
+    for sp_range in ranges:
+        results = spotify.current_user_top_tracks(time_range=sp_range, limit=50)
+        for i, item in enumerate(results['items']):
+            del(item['album']['available_markets'])
+            del(item['available_markets'])
+            item['feature'] = spotify.audio_features(item['uri'])[0]
+            tempo.append(item['feature']['danceability'])
+            valence.append(item['feature']['valence'])
+            danceability.append(item['feature']['danceability'])
+            track_name.append(item['name'])
+    with open('./.user/top_tracks.json', 'w', encoding='utf-8') as f:  
+        json.dump(results, f, indent = 4)
+
+    fig = plt.figure(figsize = (16, 9))
+    ax = plt.axes(projection ="3d")
+    my_cmap = plt.get_cmap('hsv')
+
+
+
+    # Creating plot
+    sctt = ax.scatter3D(valence, tempo, danceability,
+                    alpha = 0.5,   
+                    cmap = my_cmap,
+                    c = danceability,
+                    marker ='^',
+                    label = track_name
+                    )
+    plt.title("User's Recent Top Tracks")
+    ax.set_xlabel('Valence', fontweight ='bold')
+    ax.set_ylabel('Tempo', fontweight ='bold')
+    ax.set_zlabel('Danceability', fontweight ='bold')
+    fig.colorbar(sctt, ax = ax, shrink = 0.5, aspect = 5)
+
+    # show plot
+    plt.show()
 
     # User Top Artists and Tracks
     ranges = ['short_term', 'medium_term', 'long_term']
@@ -357,8 +475,8 @@ def my_top():
     # In Python 3.x, .items() is now an itemview object. So, list(dict.items()) is required for what was dict.items() in Python 2.x.
     # top_10 = sorted(genres_dict,key = lambda x: x[1][:10])
 
-    top_10 = (Counter(genres_dict)).most_common(10)
-    seed_genres = top_10
+    top_10 = Counter(genres_dict).most_common(10)
+    logger.info(top_10)
     seed_artists = fav_artists
 
     with open('./.user/fav_artists.json', 'w', encoding='utf-8') as f:   
@@ -367,13 +485,33 @@ def my_top():
     logging.info(top_10)
     with open('./.user/top_genres.json', 'w', encoding='utf-8') as f:   
             json.dump(genres_dict, f, indent=4) 
+
+
     pt_summary=PrettyTable()
+    genre_key=[]
+    genre_value=[]
     pt_summary.field_names=['Genre','Count']
     for (k,v) in top_10:
         pt_summary.add_row([k,v])
+        genre_key.append(k)
+        seed_genres.append(k)
+        genre_value.append(v)
+        
+
+    """
+    Plotting
+    """
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(genre_value, labels=genre_key, autopct='%1.1f%%',
+            shadow=True, startangle=90)
+    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+    plt.savefig('./static/top_genres.png')
 
     html_string += "<br/><h2> Your Most Played Genres </h2>"
     html_string += pt_summary.get_html_string(format = True, attributes={"id":"results"})
+    html_string += "<img src='./static/top_genres.png'/>"
 
     #https://stackoverflow.com/questions/19315567/returning-rendered-template-with-flask-restful-shows-html-in-browser
     return make_response(render_template('base.html', output = html.unescape(html_string)))
@@ -389,10 +527,7 @@ def recommended():
     #scope = "user-top-read,user-library-read"
     pt_top=PrettyTable()
     #pt_top.field_names=['no','name','url','genres','album cover','uri']
-    html_string ='\ufeff'+"<html><head><meta charset='UTF-8'></head>"  \
-+"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>"  \
-+"<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>" \
-+"<script>$(document).ready(function() {$('#results').tablesorter();});</script>"
+    html_string ='\ufeff'
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
     auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
     if not auth_manager.validate_token(cache_handler.get_cached_token()):
@@ -401,28 +536,26 @@ def recommended():
 
    
     sp = spotipy.Spotify(auth_manager=auth_manager)
-    ref_artists = []
+
 
     for sp_range in ['short_term', 'medium_term', 'long_term']:
         results = sp.current_user_top_artists(time_range=sp_range, limit=5)
         # logger.info(results)
         for i, item in enumerate(results['items']):
-            ref_artists.append(item['uri'].replace("spotify:artist:",""))
-    #ref_artists = list(set(ref_artists))
-    logger.info(ref_artists)
+            seed_artists.append(item['uri'].replace("spotify:artist:",""))
+    logger.info(seed_artists)
 
-    """
-    seed_genres = []
-seed_artists =[]
-seed_tracks = []
-    """
+    
 
+    
+    seed_genres = sp.recommendation_genre_seeds()['genres']
     logger.info("seed_genres = " + str(seed_genres))
     logger.info("seed_artists = " + str(seed_artists))
     logger.info("seed_tracks = " +  str(seed_tracks))
-    results = sp.recommendations(seed_artists=ref_artists, seed_genres = seed_genres, seed_tracks= seed_tracks)
+   
+    results = sp.recommendations(seed_tracks= seed_tracks, seed_genres=seed_genres, seed_artists=seed_artists, limit = 100)
     logger.info(results)
-    with open('./.user/recommend.json', 'w', encoding='utf-8') as f:   
+    with open('./.user/recommend.json', 'w', encoding='utf-8') as f:  
         json.dump(results, f, indent = 4)
     for track in results['tracks']:
         pt_top.add_row(track['name'],track['artists'][0]['name'])

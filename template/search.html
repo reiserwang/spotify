@@ -2,16 +2,20 @@
 
 {% block content %}
     <h1>{% block title %}  {% endblock %}</h1>
-    <form method="post">
-        <label for="title">Artist</label>
-        <br>
-        <input type="text" name="title"
-               placeholder="Message title"
-               value="{{ request.form['artist'] }}"></input>
-        <br>
+    <div class='div_search'>
+        <form action="/search" method="post enctype="multipart/form-data"">
+            <input type="text" id="keyword" name="keyword" value="Alice Sara Ott"><br/>
+            <input type ="radio" id="artist" name="type" value = "artist" checked="True">
+            <label for = "artist">Artist</label>
 
-        <label for="content">Message Content</label>
-
-        <button type="submit">Submit</button>
-    </form>
+            <input type ="radio" id="track" name="type" value= "track">
+            <label for = "track">track</label>
+            <input type = "submit">
+        </form>
+    </div>
+    <div class="search_result">
+        {% block search_result %} 
+        <p>{{ output|safe }}</p>
+        {% endblock %}
+    </div>
 {% endblock %}
