@@ -75,7 +75,7 @@ def index():
 
     logger.info("UUID: "+session.get('uuid'))
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=session_cache_path())
-    auth_manager = spotipy.oauth2.SpotifyOAuth(scope='user-library-read,user-read-currently-playing,playlist-modify-private,user-read-playback-state,user-modify-playback-state,user-top-read',
+    auth_manager = spotipy.oauth2.SpotifyOAuth(scope='user-library-read,user-read-currently-playing,playlist-modify-private,user-read-playback-state,user-modify-playback-state,user-top-read,playlist-read-private',
                                             cache_handler=cache_handler, 
                                             show_dialog=True)
     # spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret= client_secret,scope=scope, redirect_uri="http://localhost:8080/callback"))
@@ -217,19 +217,76 @@ def playlists():
 
     html_string ='\ufeff'
     pt_top=PrettyTable()
-    pt_top.field_names=['no','playlist cover','name','uri']
-
+    pt_top.field_names=['no','playlist cover','name','uri','features']
+    playlist_items = {}
+    valence =[]
+    tempo =[]
+    danceability =[]
+    track_name =[]
     for i, item in enumerate(results['items']):    
         # add_row() takes a list of values as an argument.  
+        playlist_items = spotify.playlist_items(
+            item['uri'],
+            offset =0,
+            fields='items.track.id,items.track.name,total',
+            additional_types=['track']
+        ) 
+        item['tracks'] = playlist_items['items'] 
+        """
+        for t, track in enumerate(item['tracks']):
+            # spotify.audio_features(track['item']['uri'])[0]
+            # logger.info(track['track']['id'])
+            track['track']['feature'] = spotify.audio_features(track['track']['id'])[0]
+            tempo.append(track['track']['feature']['tempo'] )
+            valence.append(track['track']['feature']['valence'] )
+            danceability.append(track['track']['feature']['danceability'] )
+            track_name.append(track['track']['name'])
+        """
+        #logger.info(playlist_items)  
 
+        """
+        fig = plt.figure(figsize = (6, 6))
+        ax = plt.axes(projection ="3d")
+        my_cmap = plt.get_cmap('hsv')
+
+
+
+        # Creating plot
+        sctt = ax.scatter3D(valence, tempo, danceability,
+                        alpha = 0.5,   
+                        cmap = my_cmap,
+                        c = danceability,
+                        marker ='^',
+                        label = track_name
+                        )
+        plt.title("Features of tracks in playlist "+item['name'])
+        ax.set_xlabel('Valence', fontweight ='bold')
+        ax.set_ylabel('Tempo', fontweight ='bold')
+        ax.set_zlabel('Danceability', fontweight ='bold')
+        fig.colorbar(sctt, ax = ax, shrink = 0.5, aspect = 5)
+
+        # show plot
+        # plt.show()
+        plt.savefig('./static/'+item['uri'].replace("spotify:playlist:","")+'.png')
+        """
         pt_top.add_row([
             i,
             "<a href='"+item['external_urls']['spotify']+"'>"+"<img src='"+item['images'][0]['url']+"' width='100' ></a>",
             "<a href='"+item['external_urls']['spotify']+"'>"+item['name']+"</a>",
-            item['uri']
+            item['uri'],
+            #filter(lambda x: x["name"],item['tracks'])
+            list(x['track']['name'] for x in item['tracks'])
+            #item['tracks']
+            #"<img src='"+"./static/"+item['uri']+".png"+"'/>"
             ])
+        #logger.info("<img src='"+"./static/"+item['uri'].replace("spotify:playlist:","")+".png"+"'/>")
     html_string += ("<h2>Public Playlist</h2><br/>"+pt_top.get_html_string(sortby="no",reversesort = False, format = True, attributes={"id":"results"}))
+   
     
+    
+    
+
+
     return make_response(render_template('base.html', output = html.unescape(html_string)),200, {'Content-Type':'text/html'})
 
 
