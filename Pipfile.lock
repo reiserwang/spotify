@@ -491,8 +491,9 @@
                 "sha256:f979ab81f58d7318e064e99c4506445d60135ac5cd2e177a2de0089bfd4c9bd5"
             ],
             "index": "pypi",
-            "version": "==2.2.2"
+            "version": ">=2.2.3"
         },
+        
         "wrapt": {
             "hashes": [
                 "sha256:00b6d4ea20a906c0ca56d84f93065b398ab74b927a7a3dbd470f6fc503f95dc3",
