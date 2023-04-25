@@ -443,7 +443,7 @@
                 "sha256:ddf27071df4adf3821c4f2ca59d67525c3a82e5f268bed97b813cb4fabf87880"
             ],
             "index": "pypi",
-            "version": "~>4.4.4"
+            "version": "==4.4.4"
         },
         "requests": {
             "hashes": [
