@@ -1,21 +1,53 @@
 {% extends 'base.html' %}
 
-{% block content %}
-    <h1>{% block title %}  {% endblock %}</h1>
-    <div class='div_search'>
-        <form action="/search" method="post enctype="multipart/form-data"">
-            <input type="text" id="keyword" name="keyword" value="Alice Sara Ott"><br/>
-            <input type ="radio" id="artist" name="type" value = "artist" checked="True">
-            <label for = "artist">Artist</label>
+{% block title %}Search - Spotify Smart Player{% endblock %}
 
-            <input type ="radio" id="track" name="type" value= "track">
-            <label for = "track">track</label>
-            <input type = "submit">
+{% block content %}
+    <div class="welcome-section">
+        <h1><i class="fas fa-search"></i> Search Music</h1>
+        <p>Discover artists and tracks with detailed audio features</p>
+    </div>
+
+    <div class="search-form">
+        <form action="/search" method="post">
+            <div style="margin-bottom: 1rem;">
+                <input type="text" 
+                       id="keyword" 
+                       name="keyword" 
+                       placeholder="Search for artists or tracks..." 
+                       value="Alice Sara Ott"
+                       required>
+            </div>
+            
+            <div class="radio-group">
+                <label for="artist">
+                    <input type="radio" id="artist" name="type" value="artist" checked>
+                    <i class="fas fa-user-music"></i> Artist
+                </label>
+                <label for="track">
+                    <input type="radio" id="track" name="type" value="track">
+                    <i class="fas fa-music"></i> Track
+                </label>
+            </div>
+            
+            <button type="submit" class="btn" id="searchBtn">
+                <i class="fas fa-search"></i> Search
+            </button>
         </form>
     </div>
-    <div class="search_result">
-        {% block search_result %} 
-        <p>{{ output|safe }}</p>
-        {% endblock %}
+
+    {% if output %}
+    <div class="card">
+        <h2><i class="fas fa-list"></i> Search Results</h2>
+        {{ output|safe }}
     </div>
+    {% endif %}
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function() {
+            const btn = document.getElementById('searchBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+            btn.disabled = true;
+        });
+    </script>
 {% endblock %}

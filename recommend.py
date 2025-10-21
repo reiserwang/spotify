@@ -1,53 +1,47 @@
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyOAuth
 import json
-import sys
-import pprint
 import logging
-import os
-import pprint
 from prettytable import PrettyTable
 
+# Configure logging
 logger = logging.getLogger(__name__)
 
-sys.stdin.reconfigure(encoding='utf-8')
-sys.stdout.reconfigure(encoding='utf-8')
-
+# Load credentials
 with open("credentials.json", "r") as f:
     credentials = json.load(f)
 
-client_credentials_manager = SpotifyClientCredentials(credentials["SPOTIFY_CLIENT_ID"], credentials["SPOTIFY_CLIENT_SECRET"])
 client_id = credentials["SPOTIFY_CLIENT_ID"]
 client_secret = credentials["SPOTIFY_CLIENT_SECRET"]
 
-
-
+# Spotify authentication
 scope = "user-top-read,user-library-read"
-pt_top=PrettyTable()
-#pt_top.field_names=['no','name','url','genres','album cover','uri']
-html_string =""
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, scope=scope, redirect_uri="http://localhost:8888/callback"))
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret= client_secret,scope=scope, redirect_uri="http://localhost:8888/callback"))
-ref_artists = []
+# Initialize PrettyTable
+pt_top = PrettyTable()
+
+# Fetch user's top artists across different time ranges
+ref_artists = set()
 for sp_range in ['short_term', 'medium_term', 'long_term']:
     results = sp.current_user_top_artists(time_range=sp_range, limit=50)
-    for i, item in enumerate(results['items']):
-        ref_artists.append(item['name'])
-ref_artists = list(set(ref_artists))
+    ref_artists.update(item['name'] for item in results['items'])
 
+# Fetch recommendations for each artist
+html_string = ""
 for artist in ref_artists:
-    results = sp.search(q='artist:' + artist, type='artist')
-    items = results['artists']['items']
-    print("artists = ",items)
+    search_results = sp.search(q=f'artist:{artist}', type='artist')
+    items = search_results['artists']['items']
 
-
-    if len(items) > 0:
+    if items:
         artist_id = items[0]['id']
-        print("artist_id = ", artist_id)
-        results = sp.recommendations(seed_artists=[artist_id])
-        print("recommendatons =",results)
-        for track in results['tracks']:
-            print(track['name'],track['artists'][0]['name'])
+        recommendations = sp.recommendations(seed_artists=[artist_id])
 
+        for track in recommendations['tracks']:
+            print(f"Track: {track['name']} | Artist: {track['artists'][0]['name']}")
+
+    # Generate HTML string from PrettyTable (if needed)
     html_string += pt_top.get_html_string()
-    print(html_string)
+
+# Print the final HTML string
+print(html_string)

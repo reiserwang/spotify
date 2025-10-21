@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Spotify Smart Player{% endblock %}
+
+{% block content %}
+    <div class="welcome-section">
+        <h1>Welcome to Spotify Smart Player</h1>
+        <p>Your intelligent companion for music discovery and analysis</p>
+        <a href="/search" class="btn">
+            <i class="fas fa-play"></i> Get Started
+        </a>
+    </div>
+    
+    <div class="feature-grid">
+        <div class="feature-card">
+            <i class="fas fa-search"></i>
+            <h3>Smart Search</h3>
+            <p>Search for artists and tracks with detailed audio feature analysis including tempo, danceability, and valence</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-list"></i>
+            <h3>Playlist Manager</h3>
+            <p>View and manage your Spotify playlists with enhanced track information and features</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-play"></i>
+            <h3>Now Playing</h3>
+            <p>See what's currently playing with audio features and get smart recommendations based on the current track</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-chart-line"></i>
+            <h3>Top Tracks Analysis</h3>
+            <p>Analyze your most played tracks with interactive 3D visualizations and genre breakdowns</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-magic"></i>
+            <h3>Smart Recommendations</h3>
+            <p>Get personalized music recommendations based on your listening history and preferences</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-user"></i>
+            <h3>Profile Insights</h3>
+            <p>View your Spotify profile information and detailed listening statistics</p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2><i class="fas fa-rocket"></i> Getting Started</h2>
+        <p>To begin using Spotify Smart Player, you'll need to authenticate with your Spotify account. This allows us to:</p>
+        <ul style="margin: 1rem 0; padding-left: 2rem;">
+            <li>Access your playlists and listening history</li>
+            <li>Analyze your music preferences</li>
+            <li>Provide personalized recommendations</li>
+            <li>Show detailed audio features for tracks</li>
+        </ul>
+        <p>Click the "Get Started" button above to authenticate and explore your music like never before!</p>
+    </div>
+{% endblock %}

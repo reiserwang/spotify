@@ -2,76 +2,377 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %} {% endblock %} - FlaskApp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Spotify Smart Player{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .message {
-            padding: 10px;
-            margin: 5px;
-            background-color: #f3f3f3
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        nav a {
-            color: #054714;
-            background: #f9f9f9;
-            font-size: 1em;
-            font-style:normal;
-            margin-left: 3em;
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1db954 0%, #191414 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #1db954;
             text-decoration: none;
-            font-family: Helvetica Neue,Helvetica,sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .collapsible {
-            background-color: #777;
-            color: white;
-            cursor: pointer;
-            padding: 18px;
+
+        nav {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        nav a:hover {
+            background: #1db954;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(29, 185, 84, 0.4);
+        }
+
+        nav a.active {
+            background: #1db954;
+        }
+
+        .content {
+            padding: 2rem 0;
+            min-height: calc(100vh - 80px);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 1rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .welcome-section {
+            text-align: center;
+            padding: 3rem 0;
+        }
+
+        .welcome-section h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #1db954, #1ed760);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-section p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .feature-card i {
+            font-size: 2.5rem;
+            color: #1db954;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .feature-card p {
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        table {
             width: 100%;
-            border: none;
-            text-align: left;
-            outline: none;
-            font-size: 15px;
-        }
-
-        .active, .collapsible:hover {
-            background-color: #555;
-        }
-
-        .collapsible_section {
-           
-            padding: 0 18px;
-            background-color: white;
-            max-height: 0;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
             overflow: hidden;
-            transition: max-height 0.2s ease-out;
-
+            margin: 1rem 0;
         }
 
+        table th {
+            background: rgba(29, 185, 84, 0.8);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
 
+        table td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        table img {
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #1db954, #1ed760);
+            color: white;
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(29, 185, 84, 0.4);
+        }
+
+        .search-form {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 2rem 0;
+        }
+
+        .search-form input[type="text"] {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-form input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 2rem;
+            margin: 1rem 0;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            color: #1db954;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .mobile-menu {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            nav {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .welcome-section h1 {
+                font-size: 2rem;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.8rem;
+            }
+
+            table img {
+                width: 60px !important;
+            }
+        }
+
+        .message {
+            padding: 1rem;
+            margin: 1rem 0;
+            background: rgba(29, 185, 84, 0.1);
+            border-left: 4px solid #1db954;
+            border-radius: 5px;
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.1);
+            border-left-color: #ff0000;
+        }
+
+        .success {
+            background: rgba(0, 255, 0, 0.1);
+            border-left-color: #00ff00;
+        }
     </style>
 
-<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>
-<script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.9.1/jquery.tablesorter.min.js'></script>
-<script>$(document).ready(function() {$('#results').tablesorter();});</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#results').tablesorter();
+            
+            // Add active class to current page
+            const currentPath = window.location.pathname;
+            $('nav a').each(function() {
+                if ($(this).attr('href') === currentPath) {
+                    $(this).addClass('active');
+                }
+            });
+        });
+    </script>
 </head>
 <body>
-    <nav>
-        <a href="{{ url_for('index') }}" target="_self"> Smart Player</a>
-        <a href="{{ url_for('search') }}" target="_self"> Search</a>
-        <a href = "{{ url_for('playlists') }}" target="_self">My Playlist</a>
-        <a href = "{{ url_for('current_playing') }}" target="_self">Current Playing</a>
-        <a href = "{{ url_for('my_top') }}" target="_self">My Top List</a>
-        <a href = "{{ url_for('recommended') }}" target="_self">Recommended</a>
-        <a href = "{{ url_for('current_user') }}" target="_self">Me</a>
-    </nav>
-    <hr>
-    <div class="content">
-        {% block content %} 
-        <p>{{ output|safe }}</p>
-        {% endblock %}
-    </div>
-    <div class="log">
-        {% block log %} 
-        <p>{{ loggeroutput|safe }}</p>
-        {% endblock %}
-    </div>
-</body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="{{ url_for('index') }}" class="logo">
+                    <i class="fab fa-spotify"></i>
+                    Smart Player
+                </a>
+                <nav>
+                    <a href="{{ url_for('index') }}">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                    <a href="{{ url_for('search') }}">
+                        <i class="fas fa-search"></i> Search
+                    </a>
+                    <a href="{{ url_for('playlists') }}">
+                        <i class="fas fa-list"></i> Playlists
+                    </a>
+                    <a href="{{ url_for('current_playing') }}">
+                        <i class="fas fa-play"></i> Now Playing
+                    </a>
+                    <a href="{{ url_for('my_top') }}">
+                        <i class="fas fa-chart-line"></i> Top Tracks
+                    </a>
+                    <a href="{{ url_for('recommended') }}">
+                        <i class="fas fa-magic"></i> Discover
+                    </a>
+                    <a href="{{ url_for('current_user') }}">
+                        <i class="fas fa-user"></i> Profile
+                    </a>
+                    <a href="{{ url_for('sign_out') }}" style="background: rgba(255,255,255,0.1);">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </header>
 
+    <main class="container">
+        <div class="content">
+            {% block content %} 
+            <div class="card">
+                {{ output|safe }}
+            </div>
+            {% endblock %}
+        </div>
+    </main>
+
+    {% if loggeroutput %}
+    <div class="container">
+        <div class="card">
+            <h3>Debug Information</h3>
+            {{ loggeroutput|safe }}
+        </div>
+    </div>
+    {% endif %}
+</body>
 </html>

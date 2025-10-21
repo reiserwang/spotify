@@ -1,9 +1,56 @@
 # Personalized Intelligent Music Selection Service
 
 ## Description
-We would like to develop a **personalized intelligent music selection service** based on <mark>users' preference,  scenario,  and physiological conditions with music feature data processed through machine learning algorithm</mark>. Users may choice preferred music stream of familiar artists that are best for dancing (non-stop at a preferred tempo), or for focusing on work/study. With **physiological or environmental sensors**, music beats from stream feed may align with a user's heart beats, or music intensity/loudness match the environment's luminance  or volume.
+We aim to create a **personalized intelligent music selection service** that <mark>tailors recommendations based on user preferences, context, and physiological data, using machine learning algorithms</mark> to analyze music features. Users can choose music streams from familiar artists optimized for activities like dancing (with a preferred tempo) or focused work/study. By integrating **physiological and environmental sensors**, the service can synchronize music beats with the user’s heart rate or adjust music intensity to match environmental factors such as lighting or noise levels.
 
-The key challenges in the past is to have a vast music library service, algorithm analyzing audio features, a device providing physiological and environmental measurements - and we have solutions now for each.  For examples, Spotify provides [API](https://developer.spotify.com/) (both [web-based](https://developer.spotify.com/documentation/web-api/) and [Python library](https://github.com/plamere/spotipy)) for [music playback, personalized playlist, search, user taste, and audio features and analysis](https://github.com/plamere/spotipy). Personal wearable devices like Apple Watch provides heart beat and noise level measures.
+## Architecture and Flow
+
+### Overview
+The architecture of this project is designed to leverage Spotify's API for music data and recommendations, integrate user preferences, and optionally incorporate physiological and environmental data for enhanced personalization. Below is a high-level overview of the architecture and flow:
+
+1. **User Authentication**:
+   - Users authenticate with Spotify using OAuth 2.0 via the `Spotipy` library.
+   - The authentication process generates an access token, enabling secure access to Spotify's API.
+
+2. **Data Retrieval**:
+   - The application fetches the user's top artists and tracks across different time ranges (`short_term`, `medium_term`, `long_term`) using Spotify's `current_user_top_artists` and `current_user_top_tracks` endpoints.
+   - Audio features (e.g., tempo, danceability, valence) are retrieved for tracks using Spotify's `audio_features` endpoint.
+
+3. **Recommendation Engine**:
+   - Based on the user's top artists, the application fetches recommendations using Spotify's `recommendations` endpoint.
+   - Recommendations are tailored by seeding the engine with artist IDs, track IDs, or genres.
+
+4. **Data Processing**:
+   - The retrieved data is processed and analyzed to match user preferences (e.g., tempo for dancing, valence for mood).
+   - Clustering algorithms (e.g., k-means) can be applied to group tracks based on features like tempo and valence.
+
+5. **Visualization and Interaction**:
+   - A front-end interface (web-based or integrated into Teams) displays the recommendations.
+   - Features include:
+     - Interactive scatter plots (e.g., tempo vs. valence) for track selection.
+     - Playlists optimized for specific activities (e.g., dancing, studying).
+     - Real-time adjustments based on physiological or environmental data (e.g., heart rate, noise levels).
+
+6. **Output**:
+   - The final output includes:
+     - A playlist of recommended tracks.
+     - Visualizations (e.g., scatter plots, music color mapping).
+     - Optional HTML reports generated using `PrettyTable`.
+
+### Architecture Diagram
+```plaintext
++-------------------+       +-------------------+       +-------------------+
+|   User Interface  | <---> |  Recommendation   | <---> |  Spotify API       |
+| (Web/Teams/CLI)   |       |     Engine        |       | (Data Retrieval)   |
++-------------------+       +-------------------+       +-------------------+
+        ^                           ^                           ^
+        |                           |                           |
+        |                           |                           |
++-------------------+       +-------------------+       +-------------------+
+| Physiological/Env |       |  Data Processing  |       |  Authentication   |
+| Sensor Data       |       | (Clustering, etc) |       | (OAuth 2.0)       |
++-------------------+       +-------------------+       +-------------------+
+'''
 
 ## Objectives (TBD)
 - Prototyping Music recommendation and selection service based on Spotify's API, particularly Features APIs that includes [danceability, tempo, energy, and valence](https://www.therecordindustry.io/analyzing-spotify-audio-features), with user text inputs (artist name, scenario or preference) on Azure Web App.
@@ -60,11 +107,8 @@ Currently Sportify's web-based authenitcation (using cached token, which is stor
 
 ## <a name="tldr"></a>TL;DR
 
-Below is a sample json returned when making a search through API. With broader samples, we conclude some features are correlated (eg. "energy" and "loudness",  "tempo" and "valence", while "accusticness" and "energy" are in negative correlation). Music with 160bps temp or higher shows higher danceability particularly in western pops, and different genres of music show different patterns in scattering diagram.
+Here is a sample JSON response from an API search. Analysis of broader samples reveals correlations between certain features, such as "energy" and "loudness," and "tempo" and "valence," while "acousticness" and "energy" show a negative correlation. Music with a tempo of 160 BPM or higher tends to have greater danceability, particularly in Western pop. Different music genres exhibit distinct patterns in scatter plots. A basic Python analysis might look like this:
 
-
-
-and a very humble view (with Python) could be like following:
 <table frame="vsides">
     <thead>
         <tr>

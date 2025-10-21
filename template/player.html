@@ -1,55 +1,158 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Spotify Web Playback SDK Quick Start</title>
-    <meta charset="UTF-8">
-</head>
-<body>
-    <h1>Spotify Web Playback SDK Quick Start</h1>
-    <nav>
-        <a href="{{ url_for('player') }}">Spotify Web Player</a>
-        <a href="#">About</a>
-    </nav>
-    <button id="togglePlay">Toggle Play</button>
+{% extends 'base.html' %}
+
+{% block title %}Web Player - Spotify Smart Player{% endblock %}
+
+{% block content %}
+    <div class="welcome-section">
+        <h1><i class="fas fa-play-circle"></i> Spotify Web Player</h1>
+        <p>Control your Spotify playback directly from the browser</p>
+    </div>
+
+    <div class="card">
+        <div style="text-align: center; padding: 2rem;">
+            <div id="player-status" class="message" style="margin-bottom: 2rem;">
+                <i class="fas fa-spinner fa-spin"></i> Initializing player...
+            </div>
+            
+            <div class="player-controls" style="display: flex; justify-content: center; gap: 1rem; margin: 2rem 0;">
+                <button id="togglePlay" class="btn" style="font-size: 1.2rem;">
+                    <i class="fas fa-play"></i> Play/Pause
+                </button>
+                <button id="previousTrack" class="btn" style="background: #666;">
+                    <i class="fas fa-step-backward"></i> Previous
+                </button>
+                <button id="nextTrack" class="btn" style="background: #666;">
+                    <i class="fas fa-step-forward"></i> Next
+                </button>
+            </div>
+
+            <div id="current-track" style="margin: 2rem 0; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                <p>No track information available</p>
+            </div>
+
+            <div class="volume-control" style="margin: 2rem 0;">
+                <label for="volume">Volume: </label>
+                <input type="range" id="volume" min="0" max="100" value="50" style="width: 200px;">
+                <span id="volume-display">50%</span>
+            </div>
+        </div>
+    </div>
 
     <script src="https://sdk.scdn.co/spotify-player.js"></script>
     <script>
+        let player;
+        let device_id;
+
         window.onSpotifyWebPlaybackSDKReady = () => {
-            const token = '19d7085d8cb2484ab75863f2aaa61592';
-            const player = new Spotify.Player({
-                name: 'Web Playback SDK Quick Start Player',
+            // Note: You'll need to get a valid token from your authentication flow
+            const token = 'YOUR_SPOTIFY_ACCESS_TOKEN'; // This should be dynamically generated
+            
+            player = new Spotify.Player({
+                name: 'Spotify Smart Player Web SDK',
                 getOAuthToken: cb => { cb(token); },
                 volume: 0.5
             });
 
             // Ready
-            player.addListener('ready', ({ device_id }) => {
-                console.log('Ready with Device ID', device_id);
+            player.addListener('ready', ({ device_id: id }) => {
+                console.log('Ready with Device ID', id);
+                device_id = id;
+                document.getElementById('player-status').innerHTML = 
+                    '<i class="fas fa-check-circle" style="color: #1db954;"></i> Player ready! Device ID: ' + id;
+                document.getElementById('player-status').className = 'message success';
             });
 
             // Not Ready
             player.addListener('not_ready', ({ device_id }) => {
                 console.log('Device ID has gone offline', device_id);
+                document.getElementById('player-status').innerHTML = 
+                    '<i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i> Device has gone offline';
+                document.getElementById('player-status').className = 'message error';
             });
 
+            // Player state changed
+            player.addListener('player_state_changed', (state) => {
+                if (!state) return;
+
+                const track = state.track_window.current_track;
+                const artists = track.artists.map(artist => artist.name).join(', ');
+                
+                document.getElementById('current-track').innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <img src="${track.album.images[0].url}" alt="${track.name}" style="width: 80px; height: 80px; border-radius: 8px;">
+                        <div style="text-align: left;">
+                            <h3 style="margin: 0; color: #1db954;">${track.name}</h3>
+                            <p style="margin: 0.5rem 0; opacity: 0.8;">${artists}</p>
+                            <p style="margin: 0; font-size: 0.9rem; opacity: 0.6;">${track.album.name}</p>
+                        </div>
+                    </div>
+                `;
+
+                // Update play/pause button
+                const playButton = document.getElementById('togglePlay');
+                if (state.paused) {
+                    playButton.innerHTML = '<i class="fas fa-play"></i> Play';
+                } else {
+                    playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                }
+            });
+
+            // Error handling
             player.addListener('initialization_error', ({ message }) => {
-                console.error(message);
+                console.error('Initialization Error:', message);
+                document.getElementById('player-status').innerHTML = 
+                    '<i class="fas fa-times-circle" style="color: #ff6b6b;"></i> Initialization Error: ' + message;
+                document.getElementById('player-status').className = 'message error';
             });
 
             player.addListener('authentication_error', ({ message }) => {
-                console.error(message);
+                console.error('Authentication Error:', message);
+                document.getElementById('player-status').innerHTML = 
+                    '<i class="fas fa-times-circle" style="color: #ff6b6b;"></i> Authentication Error: Please sign in again';
+                document.getElementById('player-status').className = 'message error';
             });
 
             player.addListener('account_error', ({ message }) => {
-                console.error(message);
+                console.error('Account Error:', message);
+                document.getElementById('player-status').innerHTML = 
+                    '<i class="fas fa-times-circle" style="color: #ff6b6b;"></i> Account Error: ' + message;
+                document.getElementById('player-status').className = 'message error';
             });
 
+            // Control event listeners
             document.getElementById('togglePlay').onclick = function() {
-              player.togglePlay();
+                player.togglePlay();
             };
 
-            player.connect();
-        }
+            document.getElementById('previousTrack').onclick = function() {
+                player.previousTrack();
+            };
+
+            document.getElementById('nextTrack').onclick = function() {
+                player.nextTrack();
+            };
+
+            // Volume control
+            const volumeSlider = document.getElementById('volume');
+            const volumeDisplay = document.getElementById('volume-display');
+            
+            volumeSlider.oninput = function() {
+                const volume = this.value / 100;
+                player.setVolume(volume);
+                volumeDisplay.textContent = this.value + '%';
+            };
+
+            // Connect to the player
+            player.connect().then(success => {
+                if (success) {
+                    console.log('Successfully connected to Spotify!');
+                } else {
+                    console.log('Failed to connect to Spotify');
+                    document.getElementById('player-status').innerHTML = 
+                        '<i class="fas fa-times-circle" style="color: #ff6b6b;"></i> Failed to connect to Spotify';
+                    document.getElementById('player-status').className = 'message error';
+                }
+            });
+        };
     </script>
-</body>
-</html>
+{% endblock %}
